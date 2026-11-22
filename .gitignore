@@ -1,0 +1,9 @@
+# Dependencies
+/node_modules
+
+# Raycast: generated when you build, lint or develop
+/raycast-env.d.ts
+/dist
+
+# misc
+.DS_Store

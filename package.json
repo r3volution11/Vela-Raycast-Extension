@@ -1,0 +1,120 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "vela-irc",
+  "title": "Vela",
+  "description": "Search your IRC channels and private conversations in Vela, send messages, and catch up on what you missed.",
+  "icon": "extension-icon.png",
+  "author": "REPLACE_WITH_RAYCAST_USERNAME",
+  "platforms": [
+    "macOS"
+  ],
+  "categories": [
+    "Communication",
+    "Applications"
+  ],
+  "keywords": [
+    "irc",
+    "chat",
+    "channel",
+    "libera",
+    "vela"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "search-conversations",
+      "title": "Search Conversations",
+      "subtitle": "Vela",
+      "description": "Find a channel or private conversation, see what's unread and where you're mentioned, and open, catch up on or write to it.",
+      "mode": "view",
+      "keywords": [
+        "irc",
+        "channel",
+        "unread",
+        "mentions",
+        "open"
+      ]
+    },
+    {
+      "name": "send-message",
+      "title": "Send Message",
+      "subtitle": "Vela",
+      "description": "Send a message to a channel you're in or a private conversation.",
+      "mode": "view",
+      "keywords": [
+        "irc",
+        "write",
+        "post"
+      ]
+    },
+    {
+      "name": "catch-me-up",
+      "title": "Catch Me Up",
+      "subtitle": "Vela",
+      "description": "Open Catch me up in Vela for the conversation with the most unread messages.",
+      "mode": "no-view",
+      "keywords": [
+        "irc",
+        "summary",
+        "summarize",
+        "unread"
+      ]
+    },
+    {
+      "name": "unread-menu-bar",
+      "title": "Unread Conversations",
+      "subtitle": "Vela",
+      "description": "Show your Vela mentions in the menu bar, with the conversations that have something unread.",
+      "mode": "menu-bar",
+      "interval": "5m",
+      "disabledByDefault": true,
+      "keywords": [
+        "irc",
+        "mentions",
+        "unread",
+        "menu bar"
+      ]
+    }
+  ],
+  "preferences": [
+    {
+      "name": "app",
+      "title": "App",
+      "description": "Which Vela to talk to. Vela Dev is the development build, for working on Vela itself.",
+      "type": "dropdown",
+      "required": false,
+      "default": "vela",
+      "data": [
+        {
+          "title": "Vela",
+          "value": "vela"
+        },
+        {
+          "title": "Vela Dev",
+          "value": "vela-dev"
+        }
+      ]
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^2.11.1",
+    "@raycast/utils": "^2.3.3"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.2.0",
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "eslint": "^10.14.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "build": "ray build -e dist -o dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"src/**/*.test.ts\"",
+    "prepublishOnly": "echo \"\\n\\nIt seems like you are trying to publish the Raycast extension to npm.\\n\\nIf you did intend to publish it to npm, remove the \\`prepublishOnly\\` script and rerun \\`npm publish\\` again.\\nIf you wanted to publish it to the Raycast Store instead, use \\`npm run publish\\` instead.\\n\\n\" && exit 1",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
