@@ -2,7 +2,20 @@
 
 Search your IRC channels and private conversations in [Vela](https://velairc.app), see where you're mentioned and what's unread, send a message, and open Catch me up, without leaving Raycast.
 
-The extension talks to Vela through Vela's [AppleScript dictionary](https://velairc.app/guide/automation#applescript) and its [`vela://` links](https://velairc.app/guide/automation#links). It needs a version of Vela that has them (Vela 1.5 or later).
+The extension talks to Vela through Vela's [AppleScript dictionary](https://velairc.app/guide/automation#applescript) and its [`vela://` links](https://velairc.app/guide/automation#links). It needs a version of Vela that has them (Vela 1.5 or later); with an older Vela, it says so.
+
+## Install
+
+From the [Raycast Store](https://www.raycast.com/r3volution11/vela-irc), once it's published there: search for **Vela** in Raycast's Store command and install it. Or install it from Vela, in **Settings → Integrations**.
+
+Until it's in the Store, you can install it from its source, with Node.js 22.22 or later:
+
+```sh
+git clone https://github.com/r3volution11/vela-raycast-extension.git
+cd vela-raycast-extension
+npm install
+npm run dev   # imports it into Raycast; it stays after you stop this
+```
 
 ## Commands
 
@@ -49,10 +62,13 @@ If you clicked **Don't Allow**, the extension says so and offers **Open Automati
 
 ## What the extension asks Vela
 
-Every command runs one small JavaScript for Automation script (`src/vela/script.ts`) with `osascript`. It first checks whether Vela is running without launching it, then sends what's below. Reading your conversations takes one Apple event per property, however many conversations you have, and Vela answers from what it has open, never its database. Nothing polls: lists read once when they open, and the menu bar command every 5 minutes.
+Every command runs one small JavaScript for Automation script (`src/vela/script.ts`) with `osascript`. It first checks whether Vela is running without launching it, then asks for Vela's `scripting version`, then sends what's below. Reading your conversations takes one Apple event per property, however many conversations you have, and Vela answers from what it has open, never its database. Nothing polls: lists read once when they open, and the menu bar command every 5 minutes.
+
+Vela raises its `scripting version` only for changes that could break extensions. A Vela without one (older than 1.5), or with a lower one than the extension needs (`REQUIRED_SCRIPTING_VERSION` in `src/lib/scripting-version.ts`, now 1), is asked nothing else, and the extension says “This extension needs Vela 1.5 or later”. `vela-terms.json` lists every term of Vela's dictionary the extension uses.
 
 | What | AppleScript equivalent |
 | --- | --- |
+| Every command, first | `get scripting version` |
 | List | `get {id, name, network name, kind, unread count, mention count, muted, joined} of every conversation` |
 | Open in Vela | none: the link `vela://open?id=<id>` |
 | Send | `send message "…" to conversation id "<id>" allowing multiple lines true/false` |
@@ -72,7 +88,7 @@ The extension has no analytics or tracking of any kind. Everything stays on your
 - **"Vela isn't running."** Open Vela (the empty view and the toast have **Open Vela**), then reopen the command or press ⌘R.
 - **"Raycast isn't allowed to control Vela."** See [above](#the-first-time-allow-raycast-to-control-vela).
 - **"Vela didn't answer in time."** macOS may be waiting for you to answer its permission prompt: click **Allow**, then try again.
-- **"Update Vela."** Your Vela doesn't have the AppleScript dictionary yet. Get the latest from [velairc.app](https://velairc.app).
+- **"This extension needs Vela 1.5 or later."** Your Vela is older than that. Get the latest from [velairc.app](https://velairc.app).
 - **"Vela is still starting."** Vela was just opened and is restoring your networks. Try again in a moment.
 - **"Not in the channel" or no Write Message.** You've left that channel: rejoin it in Vela. **Draft in Vela** still works.
 - **Catch Me Up says Apple Intelligence isn't available or is turned off.** Catch me up needs Apple Intelligence or one of your own AI models in Vela's **Settings → Intelligence**, and it must be turned on there.
@@ -81,21 +97,34 @@ The extension has no analytics or tracking of any kind. Everything stays on your
 
 ## Development
 
+You need macOS, Node.js 22.22 or later and Raycast.
+
 ```sh
 npm install
-npm run dev        # ray develop: opens the extension in Raycast
-npm test           # unit tests, with Node's own test runner
-npm run lint       # ray lint: manifest, icons, ESLint, Prettier
-npm run build      # ray build: a distribution build into dist/
-npx tsc --noEmit   # type-check, tests included
+npm run dev                # ray develop: opens the extension in Raycast
+npm test                   # unit tests, with Node's own test runner
+npm run lint               # ray lint: manifest, icons, ESLint, Prettier
+npm run build              # ray build: a distribution build into dist/
+npx tsc --noEmit           # type-check, tests included
+npm run check-vela-terms   # the terms the extension uses, against Vela's dictionary
 ```
 
-- `src/lib/`: everything that isn't Raycast (sorting and sections, accessories, line counting, error messages, links, reading the script's answers), tested by `src/lib/*.test.ts`. Imports between these files name their `.ts` extension so Node can run them directly.
+- `src/lib/`: everything that isn't Raycast (sorting and sections, accessories, line counting, error messages, links, reading the script's answers, the scripting version it needs), tested by `src/lib/*.test.ts`. Imports between these files name their `.ts` extension so Node can run them directly.
 - `src/vela/script.ts`: the JXA script. `src/vela/script.test.ts` runs it in Node against a stand-in Vela, so the tests never send an Apple event, and compiles it with `osacompile` to check its syntax.
 - `src/vela/bridge.ts`: runs the script with `runAppleScript` and turns its answer into conversations or a problem to show.
 - `src/components/`, `src/hooks/` and the four command files: the views.
+- `vela-terms.json`: every term of Vela's AppleScript dictionary the script uses. `scripts/check-vela-terms.mjs` checks them against Vela's dictionary; the same script is in [vela-alfred-workflow](https://github.com/r3volution11/vela-alfred-workflow).
+- `.github/workflows/`: CI, and the nightly check against Vela's dictionary.
 
 The tests never talk to Vela. To try the extension against a real Vela, use Vela Dev (the **App** preference) and `npm run dev`.
+
+### Testing
+
+`npm test` runs the extension's tests and those of `scripts/check-vela-terms.mjs`.
+
+`src/vela/terms.test.ts` keeps `vela-terms.json` honest: it reads the script for the terms it uses (`app.sendMessage(…, { to: … })`, `app.conversations.unreadCount()`, the `COLUMNS` it reads, and so on) and fails if one isn't in `vela-terms.json`, or if `vela-terms.json` lists one the extension no longer mentions. That's a heuristic, not a parser: it only sees terms used on a variable named `app`, and the comments in `termsInJXA` (in `scripts/check-vela-terms.mjs`) list what it misses. Add a term to `vela-terms.json` by hand when you use it some other way.
+
+When there's a Vela.sdef on your Mac, one more test checks every term in `vela-terms.json` against it. It finds it like `scripts/check-vela-terms.mjs` does: `VELA_SDEF`, or Vela's repository checked out beside this one (`../Vela IRC` or `../Vela-IRC`). Without one it's skipped, and CI checks the terms against Vela's `next` instead.
 
 ## Store submission
 
@@ -110,11 +139,31 @@ What's left before `npm run publish`:
 2. **Check.** `npm run lint` and `npm run build` pass; `CI=true npx ray lint` also checks `package-lock.json`.
 3. **Publish.** Commit, then run `npm run publish` in this folder. It asks you to sign in with GitHub, forks [raycast/extensions](https://github.com/raycast/extensions) into your account (as `raycast-extensions`) if you haven't yet, copies this folder in as `extensions/vela-irc` and opens the pull request; running it again adds to the same pull request. To do it by hand instead, copy the folder (with `package-lock.json`, without `node_modules` and `dist`) into your own fork of raycast/extensions as `extensions/vela-irc` and open the pull request yourself. Either way, Raycast's team reviews it before it's in the Store.
 
+Once it's in the Store, see [Releasing](#releasing) for updates.
+
 The extension is MIT-licensed, as the Raycast Store requires. Vela itself is licensed under the MPL-2.0; the extension contains none of Vela's code, only the names of its AppleScript terms and its bundle ids.
+
+## Releasing
+
+The Raycast Store builds the extension from [raycast/extensions](https://github.com/raycast/extensions), so a release is a pull request there:
+
+1. Add what changed to the top of `CHANGELOG.md`, under a `## [What changed] - {PR_MERGE_DATE}` heading (Raycast fills in the date), and commit.
+2. Check that `npm run lint`, `npm test` and `npm run build` pass (CI runs them too).
+3. Run `npm run publish`. It copies this folder to `extensions/vela-irc` in your fork of raycast/extensions (`raycast-extensions` in your GitHub account) and opens the pull request, or adds to an open one. Raycast's team reviews it, and once it's merged, Raycast updates the installed extensions.
+
+## Working across Vela and this extension
+
+The extension talks to Vela only through Vela's AppleScript dictionary ([`Vela/Vela.sdef`](https://github.com/r3volution11/Vela-IRC/blob/next/Vela/Vela.sdef) in Vela's repository) and its `vela://` links. `vela-terms.json` lists every term it uses.
+
+- **Change Vela's dictionary first.** A term has to be in Vela before the extension can use it.
+- **Adding a term is safe**: nothing uses it yet. Use it here once a Vela that has it is released, and say which Vela the extension then needs (`REQUIRED_VELA` in `src/lib/scripting-version.ts`).
+- **Removing or renaming a term breaks released extensions.** Do it only after this extension and the Alfred workflow no longer use it (it's out of their `vela-terms.json`, and they're released), and raise Vela's `scripting version` in the same change. An extension that needs the new dictionary raises `REQUIRED_SCRIPTING_VERSION` to match, so an older Vela says which Vela it needs instead of failing.
+- **Use the same branch name in both repositories** for a change on both sides. Locally, check out that branch in Vela beside this repository: the tests and `npm run check-vela-terms` use its Vela.sdef. On GitHub, the dictionary check on a push here uses Vela's branch of the same name when there is one, instead of `next`.
+- **The dictionary check** (`.github/workflows/vela-terms.yml`, **Vela's dictionary** in the Actions tab) runs on every push and every night. It checks `vela-terms.json` against Vela.sdef on Vela's `next`, which must pass, and on `main`, which only reports (`--soft`), since the released Vela can predate terms the extension already uses. So when a change to Vela's dictionary would break the extension, the check here fails within a day. When a scheduled run fails, GitHub emails whoever last changed its schedule. GitHub turns scheduled runs off after 60 days without commits; turn it back on in the Actions tab.
 
 ## License
 
-MIT
+[MIT](LICENSE).
 
 ---
 

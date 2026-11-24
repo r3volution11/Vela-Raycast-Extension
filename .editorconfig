@@ -1,5 +1,4 @@
-# The Raycast extension follows Raycast's style (2 spaces), not the Vela
-# repo's Swift-first 4 spaces.
+# Raycast's style: 2 spaces.
 root = true
 
 [*]

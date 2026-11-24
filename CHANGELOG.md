@@ -7,3 +7,4 @@
 - **Catch Me Up**: open Catch me up in Vela for the unmuted conversation with the most unread messages.
 - **Unread Conversations**: an optional menu bar command (off by default) with your mentions and the conversations that have something unread, refreshed every 5 minutes.
 - An **App** preference to use Vela Dev, Vela's development build, instead of Vela.
+- Needs Vela 1.5 or later, and says so with an older Vela.
