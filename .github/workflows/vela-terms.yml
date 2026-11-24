@@ -1,0 +1,60 @@
+name: Vela's dictionary
+
+# Checks that Vela's AppleScript dictionary (Vela/Vela.sdef in
+# r3volution11/Vela-IRC) still has every term in vela-terms.json, so a
+# change to Vela that would break the extension shows up here within a day
+# (scripts/check-vela-terms.mjs):
+#
+# - next, where Vela's next release is made: must pass. On a branch Vela
+#   also has, by the same name, that branch instead, so a change made on
+#   both sides can be checked before it's in Vela's next.
+# - main, Vela's released version: report only (--soft). It can predate
+#   terms the extension already uses for the next Vela, or have no
+#   dictionary at all.
+#
+# It runs on every push, every night and on demand (Actions → Vela's
+# dictionary → Run workflow). When a scheduled run fails, GitHub emails the
+# person who last changed the cron schedule below. In a public repository
+# GitHub turns scheduled workflows off after 60 days without commits; turn
+# it back on from the Actions tab.
+
+on:
+  push:
+  schedule:
+    # Every day at 05:17 UTC.
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Vela ${{ matrix.vela }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        vela: [next, main]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check vela-terms.json against Vela.sdef
+        env:
+          VELA: ${{ matrix.vela }}
+        run: |
+          branch=$VELA
+          soft=()
+          if [[ $VELA == main ]]; then
+            soft=(--soft)
+          elif [[ $GITHUB_EVENT_NAME == push && $GITHUB_REF_TYPE == branch && $GITHUB_REF_NAME != main && $GITHUB_REF_NAME != next ]] &&
+            git ls-remote --exit-code --heads https://github.com/r3volution11/Vela-IRC.git "refs/heads/$GITHUB_REF_NAME" >/dev/null; then
+            branch=$GITHUB_REF_NAME
+            echo "Vela has a $branch branch too: checking against it instead of next."
+          fi
+          node scripts/check-vela-terms.mjs --branch "$branch" "${soft[@]}"

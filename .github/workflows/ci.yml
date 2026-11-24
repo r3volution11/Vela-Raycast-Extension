@@ -1,0 +1,51 @@
+name: CI
+
+# Lints, tests and builds the extension on every push to main and every
+# pull request to it. `ray lint` looks the author up on raycast.com, so it
+# needs the network; with CI set, as it is here, it checks
+# package-lock.json too.
+#
+# The test that needs a Vela.sdef is skipped here: vela-terms.yml checks
+# the extension's terms against Vela's dictionary.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Lint, test and build
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Manifest, icons, ESLint and Prettier.
+      - name: Lint
+        run: npm run lint
+
+      # Never talks to Vela; also compiles the script with osacompile.
+      - name: Test
+        run: npm test
+
+      # Type-checks too, tests included.
+      - name: Build
+        run: npm run build
