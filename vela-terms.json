@@ -1,0 +1,24 @@
+{
+  "$comment": "The parts of Vela's AppleScript dictionary (Vela/Vela.sdef in r3volution11/Vela-IRC) that the extension's script (src/vela/script.ts) uses. scripts/check-vela-terms.mjs checks that Vela.sdef has each one; src/vela/terms.test.ts checks that the script uses nothing that isn't here. See the README's \"Working across Vela and this extension\".",
+  "classes": {
+    "application": {
+      "properties": ["scripting version"],
+      "elements": ["conversation"]
+    },
+    "conversation": {
+      "properties": ["id", "name", "network name", "kind", "unread count", "mention count", "muted", "joined"],
+      "respondsTo": ["catch up", "open recap", "mark read"]
+    }
+  },
+  "commands": {
+    "catch up": [],
+    "open recap": [],
+    "mark read": [],
+    "mark all read": [],
+    "send message": ["to", "allowing multiple lines"],
+    "draft message": ["to"]
+  },
+  "enumerations": {
+    "conversation kind": ["private conversation"]
+  }
+}
