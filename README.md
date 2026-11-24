@@ -101,15 +101,14 @@ The tests never talk to Vela. To try the extension against a real Vela, use Vela
 
 What's left before `npm run publish`:
 
-1. **Author.** Replace `REPLACE_WITH_RAYCAST_USERNAME` in `package.json` with your Raycast username. `ray lint` looks it up on raycast.com and fails until it's a real one.
-2. **Screenshots.** Take 3 to 6 with Raycast's **Capture Window** command (2000 × 1250 PNG, light or dark but all the same, one wallpaper), with **Save to Metadata** ticked so they land in `metadata/` as `vela-irc-1.png` and so on. Run Vela with demo data (`--demo`) so no real networks or nicks show. Suggested views:
+1. **Screenshots.** Take 3 to 6 with Raycast's **Capture Window** command (2000 × 1250 PNG, light or dark but all the same, one wallpaper), with **Save to Metadata** ticked so they land in `metadata/` as `vela-irc-1.png` and so on. Run Vela with demo data (`--demo`) so no real networks or nicks show. Suggested views:
    1. Search Conversations with Mentions, Unread and All sections.
    2. The action panel (⌘K) on a conversation.
    3. Write Message with a few lines typed and **Send all N lines** showing.
    4. Send Message with the conversation dropdown open.
    5. Optionally, the Unread Conversations menu bar menu (Capture Window doesn't capture menus: use a screenshot cropped and scaled to 2000 × 1250).
-3. **Check.** `npm run lint` and `npm run build` pass; `CI=true npx ray lint` also checks `package-lock.json`.
-4. **Publish.** Commit, then run `npm run publish` in this folder. It asks you to sign in with GitHub, forks [raycast/extensions](https://github.com/raycast/extensions) into your account (as `raycast-extensions`) if you haven't yet, copies this folder in as `extensions/vela-irc` and opens the pull request; running it again adds to the same pull request. To do it by hand instead, copy the folder (with `package-lock.json`, without `node_modules` and `dist`) into your own fork of raycast/extensions as `extensions/vela-irc` and open the pull request yourself. Either way, Raycast's team reviews it before it's in the Store.
+2. **Check.** `npm run lint` and `npm run build` pass; `CI=true npx ray lint` also checks `package-lock.json`.
+3. **Publish.** Commit, then run `npm run publish` in this folder. It asks you to sign in with GitHub, forks [raycast/extensions](https://github.com/raycast/extensions) into your account (as `raycast-extensions`) if you haven't yet, copies this folder in as `extensions/vela-irc` and opens the pull request; running it again adds to the same pull request. To do it by hand instead, copy the folder (with `package-lock.json`, without `node_modules` and `dist`) into your own fork of raycast/extensions as `extensions/vela-irc` and open the pull request yourself. Either way, Raycast's team reviews it before it's in the Store.
 
 The extension is MIT-licensed, as the Raycast Store requires. Vela itself is licensed under the MPL-2.0; the extension contains none of Vela's code, only the names of its AppleScript terms and its bundle ids.
 
