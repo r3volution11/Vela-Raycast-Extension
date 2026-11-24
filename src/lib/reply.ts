@@ -4,6 +4,7 @@
 import {
   notInstalledProblem,
   notRunningProblem,
+  outdatedProblem,
   problemFromError,
   type Problem,
   type ProblemContext,
@@ -13,7 +14,11 @@ export type AppState = "notRunning" | "notInstalled";
 
 export type ScriptSuccess = { ok: true; columns?: unknown; count?: number; nothingUnread?: boolean };
 
-export type ScriptFailure = { ok: false; state: AppState } | { ok: false; number: number | null; message: string };
+export type ScriptFailure =
+  | { ok: false; state: AppState }
+  /** Vela has no `scripting version` (null), or a lower one than the extension needs. */
+  | { ok: false; outdated: true; scriptingVersion: number | null }
+  | { ok: false; number: number | null; message: string };
 
 export type ScriptReply = ScriptSuccess | ScriptFailure;
 
@@ -40,6 +45,13 @@ export function parseReply(stdout: string): ScriptReply {
   if (reply.state === "notRunning" || reply.state === "notInstalled") {
     return { ok: false, state: reply.state };
   }
+  if (reply.outdated === true) {
+    return {
+      ok: false,
+      outdated: true,
+      scriptingVersion: typeof reply.scriptingVersion === "number" ? reply.scriptingVersion : null,
+    };
+  }
   return {
     ok: false,
     number: typeof reply.number === "number" ? reply.number : null,
@@ -52,5 +64,6 @@ export function problemFromFailure(reply: ScriptFailure, appName: string, contex
   if ("state" in reply) {
     return reply.state === "notInstalled" ? notInstalledProblem(appName) : notRunningProblem(appName);
   }
+  if ("outdated" in reply) return outdatedProblem(appName);
   return problemFromError(reply.number, reply.message, appName, context);
 }

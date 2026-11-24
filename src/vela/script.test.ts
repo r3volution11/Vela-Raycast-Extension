@@ -10,7 +10,8 @@ import { join } from "node:path";
 import { describe, test } from "node:test";
 import vm from "node:vm";
 import { conversationsFromColumns } from "../lib/conversations.ts";
-import { parseReply } from "../lib/reply.ts";
+import { parseReply, problemFromFailure } from "../lib/reply.ts";
+import { REQUIRED_SCRIPTING_VERSION } from "../lib/scripting-version.ts";
 import { encodeRequest, VELA_SCRIPT, type ScriptRequest } from "./script.ts";
 
 const BUNDLE_ID = "io.github.r3volution11.Vela";
@@ -29,13 +30,25 @@ interface FakeConversation {
 interface FakeOptions {
   running?: boolean;
   installed?: boolean;
-  /** Every Apple event fails with this (as JXA throws them). */
+  /** What Vela says its scripting version is (1 if not given); null is an older Vela that doesn't know the term. */
+  scriptingVersion?: number | null;
+  /** Reading the scripting version fails with this. */
+  versionError?: { errorNumber: number; message: string };
+  /** Every Apple event but the scripting version's fails with this (as JXA throws them). */
   error?: { errorNumber: number; message: string };
   /** How many full reads come back inconsistent: their first column is one conversation short (one closing mid-read). */
   inconsistentReads?: number;
 }
 
 const COLUMN_COUNT = 8;
+
+/** How the calls show the one Apple event that asks for Vela's scripting version. */
+const VERSION_READ = ["get", "scriptingVersion"];
+
+/** The calls after each run's scripting version read: what the commands themselves sent. */
+function sent(calls: unknown[][]): unknown[][] {
+  return calls.filter((call) => !(call[0] === "get" && call[1] === "scriptingVersion"));
+}
 
 /** The script's answers, made plain: objects from the script's context aren't this realm's objects. */
 function plain(value: unknown): unknown {
@@ -70,6 +83,14 @@ function fakeVela(conversations: FakeConversation[], options: FakeOptions = {}) 
 
   const vela = {
     conversations: elements,
+    scriptingVersion: () => {
+      calls.push(VERSION_READ);
+      const version = options.scriptingVersion === undefined ? 1 : options.scriptingVersion;
+      const error =
+        options.versionError ?? (version === null ? { errorNumber: -1708, message: "Message not understood." } : null);
+      if (error) throw Object.assign(new Error(error.message), { errorNumber: error.errorNumber });
+      return version;
+    },
     sendMessage: (text: string, parameters: unknown) => event(["sendMessage", text, parameters], () => undefined),
     draftMessage: (text: string, parameters: unknown) => event(["draftMessage", text, parameters], () => undefined),
     catchUp: (...args: unknown[]) => event(["catchUp", ...args], () => undefined),
@@ -172,7 +193,7 @@ describe("list", () => {
     assert.equal(reply.ok, true);
     assert.deepEqual(
       vela.calls.map((call) => call[1]),
-      ["id", "name", "networkName", "kind", "unreadCount", "mentionCount", "muted", "joined"],
+      ["scriptingVersion", "id", "name", "networkName", "kind", "unreadCount", "mentionCount", "muted", "joined"],
     );
     assert.deepEqual(vela.applications, [BUNDLE_ID]);
 
@@ -192,7 +213,7 @@ describe("list", () => {
     const vela = fakeVela([VELA_CHANNEL, MARISOL], { inconsistentReads: 1 });
     const { reply } = vela.run({ command: "list" });
     assert.equal(reply.ok, true);
-    assert.equal(vela.calls.length, 16, "two full reads");
+    assert.equal(vela.calls.length, 17, "the scripting version, then two full reads");
   });
 
   test("gives up after three reads that don't agree", () => {
@@ -211,7 +232,7 @@ describe("commands", () => {
     const vela = fakeVela([VELA_CHANNEL]);
     assert.deepEqual(vela.run({ command: "send", id: VELA_CHANNEL.id, text: "hello\nall" }).reply, { ok: true });
     vela.run({ command: "send", id: VELA_CHANNEL.id, text: "1\n2\n3\n4", allowMultipleLines: true });
-    assert.deepEqual(plain(vela.calls), [
+    assert.deepEqual(plain(sent(vela.calls)), [
       ["sendMessage", "hello\nall", { to, allowingMultipleLines: false }],
       ["sendMessage", "1\n2\n3\n4", { to, allowingMultipleLines: true }],
     ]);
@@ -221,7 +242,7 @@ describe("commands", () => {
     const vela = fakeVela([VELA_CHANNEL]);
     const text = '/quit "bye" \\ {"ok":true} ✅';
     vela.run({ command: "send", id: VELA_CHANNEL.id, text });
-    assert.equal(vela.calls[0][1], text);
+    assert.equal(sent(vela.calls)[0][1], text);
   });
 
   test("draft, catch up, recap and mark read name the conversation by id", () => {
@@ -229,7 +250,7 @@ describe("commands", () => {
     for (const command of ["draft", "catchUp", "recap", "markRead"] as const) {
       assert.deepEqual(vela.run({ command, id: VELA_CHANNEL.id, text: "Back in 5" }).reply, { ok: true });
     }
-    assert.deepEqual(plain(vela.calls), [
+    assert.deepEqual(plain(sent(vela.calls)), [
       ["draftMessage", "Back in 5", { to }],
       ["catchUp", to],
       ["openRecap", to],
@@ -259,6 +280,63 @@ describe("commands", () => {
     const { reply } = vela.run({ command: "launch" as never });
     assert.equal(reply.ok, false);
     assert.match(reply.message, /doesn't know/);
+  });
+});
+
+describe("scripting version", () => {
+  test("is read once per run, before anything else", () => {
+    const vela = fakeVela([VELA_CHANNEL]);
+    for (const command of ["list", "send", "catchUpBusiest", "markAllRead"] as const) {
+      const before = vela.calls.length;
+      vela.run({ command, id: VELA_CHANNEL.id, text: "hi" });
+      const run = vela.calls.slice(before);
+      assert.deepEqual(run[0], VERSION_READ, command);
+      assert.equal(run.filter((call) => call[1] === "scriptingVersion").length, 1, command);
+    }
+  });
+
+  test("an older Vela, without one, is asked nothing else", () => {
+    const vela = fakeVela([VELA_CHANNEL], { scriptingVersion: null });
+    for (const command of ["list", "send", "catchUpBusiest", "markAllRead"] as const) {
+      assert.deepEqual(vela.run({ command, id: VELA_CHANNEL.id, text: "hi" }).reply, {
+        ok: false,
+        outdated: true,
+        scriptingVersion: null,
+      });
+    }
+    assert.deepEqual(sent(vela.calls), []);
+  });
+
+  test("a lower one than the extension needs is the same; a higher one is fine", () => {
+    const old = fakeVela([VELA_CHANNEL], { scriptingVersion: 0 });
+    assert.deepEqual(old.run({ command: "markAllRead" }).reply, { ok: false, outdated: true, scriptingVersion: 0 });
+    assert.deepEqual(sent(old.calls), []);
+    const newer = fakeVela([VELA_CHANNEL], { scriptingVersion: 7 });
+    assert.deepEqual(newer.run({ command: "markAllRead" }).reply, { ok: true, count: 4 });
+  });
+
+  test("its own errors come back like any other", () => {
+    const vela = fakeVela([VELA_CHANNEL], {
+      versionError: { errorNumber: -1743, message: "Not authorized to send Apple events to Vela." },
+    });
+    assert.deepEqual(vela.run({ command: "list" }).reply, {
+      ok: false,
+      number: -1743,
+      message: "Not authorized to send Apple events to Vela.",
+    });
+  });
+
+  test("the extension reads an outdated answer as a problem saying which Vela it needs", () => {
+    const { output } = fakeVela([], { scriptingVersion: null }).run({ command: "list" });
+    const reply = parseReply(output);
+    assert.ok(!reply.ok && "outdated" in reply);
+    const problem = problemFromFailure(reply, "Vela", "list");
+    assert.equal(problem.kind, "outdated");
+    assert.equal(problem.title, "This extension needs Vela 1.5 or later");
+  });
+
+  test("the script needs the version the extension says it needs", () => {
+    assert.match(VELA_SCRIPT, new RegExp(`var REQUIRED_SCRIPTING_VERSION = ${REQUIRED_SCRIPTING_VERSION};`));
   });
 });
 

@@ -1,5 +1,9 @@
 // Runs the extension's script (./script.ts) against Vela and turns its
 // answer into conversations, or a ``VelaError`` with a problem to show.
+// Every run first asks Vela for its `scripting version`: a Vela older than
+// the extension needs (src/lib/scripting-version.ts) becomes an "outdated"
+// problem, "This extension needs Vela 1.5 or later", which the views show as
+// a toast or an empty view with a link to Vela's website.
 
 import { getPreferenceValues } from "@raycast/api";
 import { runAppleScript } from "@raycast/utils";

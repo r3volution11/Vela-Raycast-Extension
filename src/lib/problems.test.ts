@@ -4,6 +4,7 @@ import {
   cleanMessage,
   notInstalledProblem,
   notRunningProblem,
+  outdatedProblem,
   parseOsascriptError,
   problemFromError,
 } from "./problems.ts";
@@ -43,6 +44,19 @@ describe("problemFromError", () => {
     assert.equal(generic.message, "Vela couldn't find that conversation. It may have been closed.");
     assert.equal(problemFromError(-1728, "Can't get object.", "Vela", "list").kind, "outdated");
     assert.equal(problemFromError(-1708, "Message not understood.", "Vela", "send").kind, "outdated");
+  });
+
+  test("an older Vela: which Vela the extension needs", () => {
+    assert.deepEqual(outdatedProblem("Vela"), {
+      kind: "outdated",
+      title: "This extension needs Vela 1.5 or later",
+      message: "Your Vela is older. Update it, then try again.",
+    });
+    assert.equal(outdatedProblem("Vela Dev", -1708).message, "Your Vela Dev is older. Update it, then try again.");
+    assert.equal(
+      problemFromError(-1708, "Message not understood.", "Vela", "send").title,
+      outdatedProblem("Vela").title,
+    );
   });
 
   test("Vela's own errors keep Vela's words, under a title for the number", () => {
@@ -134,6 +148,19 @@ describe("parseReply", () => {
     assert.deepEqual(parseReply('{"ok":false,"state":"notInstalled"}'), { ok: false, state: "notInstalled" });
   });
 
+  test("an older Vela is outdated, with its scripting version if it has one", () => {
+    assert.deepEqual(parseReply('{"ok":false,"outdated":true,"scriptingVersion":null}'), {
+      ok: false,
+      outdated: true,
+      scriptingVersion: null,
+    });
+    assert.deepEqual(parseReply('{"ok":false,"outdated":true,"scriptingVersion":0}'), {
+      ok: false,
+      outdated: true,
+      scriptingVersion: 0,
+    });
+  });
+
   test("errors carry Vela's number and message", () => {
     assert.deepEqual(parseReply('{"ok":false,"number":1003,"message":"You\'re not in #vela."}'), {
       ok: false,
@@ -155,5 +182,9 @@ describe("parseReply", () => {
     assert.equal(problemFromFailure({ ok: false, state: "notRunning" }, "Vela", "list").kind, "notRunning");
     assert.equal(problemFromFailure({ ok: false, state: "notInstalled" }, "Vela", "list").kind, "notInstalled");
     assert.equal(problemFromFailure({ ok: false, number: -1743, message: "" }, "Vela", "send").kind, "permission");
+    assert.equal(
+      problemFromFailure({ ok: false, outdated: true, scriptingVersion: null }, "Vela", "list").title,
+      "This extension needs Vela 1.5 or later",
+    );
   });
 });

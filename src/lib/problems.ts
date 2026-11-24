@@ -1,14 +1,16 @@
 // What went wrong, in words for a toast or an empty view: Vela's AppleScript
-// error numbers (website/guide/automation.md#errors), the macOS ones a
+// error numbers (velairc.app/guide/automation#errors), the macOS ones a
 // script can hit, and the extension's own. No Raycast imports here, so
 // `npm test` can run this with plain Node.
+
+import { REQUIRED_VELA } from "./scripting-version.ts";
 
 export type ProblemKind =
   /** Raycast isn't allowed to control Vela (Privacy & Security → Automation). */
   | "permission"
   | "notRunning"
   | "notInstalled"
-  /** This Vela has no AppleScript dictionary yet, or not this part of it. */
+  /** This Vela is older than the extension needs: no `scripting version`, a lower one, or no such term. */
   | "outdated"
   | "timeout"
   /** No such conversation (any more). */
@@ -103,10 +105,10 @@ export function problemFromError(
         message: `If macOS is asking whether Raycast may control ${appName}, click Allow. Then try again.`,
       };
     case -1708:
-      return outdated(appName, number);
+      return outdatedProblem(appName, number);
     case -1728:
       // Reading every conversation can't miss one: an older Vela without the dictionary.
-      if (context === "list") return outdated(appName, number);
+      if (context === "list") return outdatedProblem(appName, number);
       return {
         kind: "notFound",
         number,
@@ -135,12 +137,13 @@ export function problemFromError(
   };
 }
 
-function outdated(appName: string, number: number): Problem {
+/** Vela is older than the extension needs (it has no `scripting version`, or a lower one), or doesn't know a term. */
+export function outdatedProblem(appName: string, number?: number): Problem {
   return {
     kind: "outdated",
-    number,
-    title: `Update ${appName}`,
-    message: `This version of ${appName} can't be scripted from Raycast. Update ${appName} from velairc.app, then try again.`,
+    ...(number !== undefined ? { number } : {}),
+    title: `This extension needs ${REQUIRED_VELA} or later`,
+    message: `Your ${appName} is older. Update it, then try again.`,
   };
 }
 

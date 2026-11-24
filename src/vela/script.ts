@@ -5,11 +5,18 @@
 // What it does, in order:
 // 1. Checks that Vela is running without launching it (NSRunningApplication,
 //    no Apple event), and whether it's installed if not.
-// 2. Sends Vela the Apple events the request needs, through its AppleScript
-//    dictionary (Vela/Vela.sdef; website/guide/automation.md).
-// 3. Catches any error there and prints JSON either way:
-//    {ok:true, …}, {ok:false, state:"notRunning"|"notInstalled"} or
+// 2. Asks Vela for its `scripting version` (one Apple event). A Vela
+//    without one, or with a lower one than the extension needs
+//    (src/lib/scripting-version.ts), is asked nothing else.
+// 3. Sends Vela the Apple events the request needs, through its AppleScript
+//    dictionary (Vela/Vela.sdef in Vela's repository;
+//    velairc.app/guide/automation). vela-terms.json lists every term it uses.
+// 4. Catches any error there and prints JSON either way:
+//    {ok:true, …}, {ok:false, state:"notRunning"|"notInstalled"},
+//    {ok:false, outdated:true, scriptingVersion} or
 //    {ok:false, number, message}. src/lib/reply.ts reads it.
+
+import { REQUIRED_SCRIPTING_VERSION } from "../lib/scripting-version.ts";
 
 export type ScriptCommand =
   /** Every conversation's details: one Apple event per property, not per conversation. */
@@ -46,6 +53,12 @@ ObjC.import("AppKit");
 // The conversation properties "list" reads, as JXA names them.
 var COLUMNS = ["id", "name", "networkName", "kind", "unreadCount", "mentionCount", "muted", "joined"];
 
+// The scripting version the extension needs (src/lib/scripting-version.ts).
+var REQUIRED_SCRIPTING_VERSION = ${REQUIRED_SCRIPTING_VERSION};
+
+// What JXA throws when Vela doesn't know a term: an older Vela.
+var NOT_UNDERSTOOD = [-1708, -1728, -10000];
+
 function run(argv) {
   var request;
   try {
@@ -61,9 +74,26 @@ function handle(request) {
   var state = appState(request.bundleId);
   if (state !== "running") return { ok: false, state: state };
   try {
-    return perform(Application(request.bundleId), request);
+    var app = Application(request.bundleId);
+    var version = scriptingVersion(app);
+    if (version === null || !(Number(version) >= REQUIRED_SCRIPTING_VERSION)) {
+      return { ok: false, outdated: true, scriptingVersion: version };
+    }
+    return perform(app, request);
   } catch (e) {
     return failure(e);
+  }
+}
+
+// Vela's scripting version, before any other Apple event: null when this
+// Vela has none (it's older than 1.5). Other errors (no permission, still
+// starting) are thrown as they are.
+function scriptingVersion(app) {
+  try {
+    return app.scriptingVersion();
+  } catch (e) {
+    if (e && NOT_UNDERSTOOD.indexOf(e.errorNumber) !== -1) return null;
+    throw e;
   }
 }
 
