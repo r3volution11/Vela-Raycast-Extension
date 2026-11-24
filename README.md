@@ -115,3 +115,7 @@ The extension is MIT-licensed, as the Raycast Store requires. Vela itself is lic
 ## License
 
 MIT
+
+---
+
+<sub>Vela and this extension were made with the help of AI. The source code is open, so anyone can read exactly what it does.</sub>
